@@ -1,4 +1,4 @@
-# instruction to execute the code
+### instruction to execute the code
 
 - full instruction:
 
@@ -24,4 +24,4 @@ or
 > ./run.sh
 ```
 
-# prediction result has been placed in './pred.txt'
+### prediction result has been placed in './pred.txt'
