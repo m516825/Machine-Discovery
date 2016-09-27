@@ -10,7 +10,7 @@ def arg_parser():
 	parser.add_argument("--bigram_file", default='./bigram.txt', type=str)
 	parser.add_argument("--encode_file", default='./encode.txt', type=str)
 	parser.add_argument("--test_file", default='./test.txt', type=str)
-	parser.add_argument("--output_file", default='./decode.txt', type=str)
+	parser.add_argument("--output_file", default='./pred.txt', type=str)
 	args = parser.parse_args()
 
 	return args
