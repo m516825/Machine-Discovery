@@ -117,8 +117,8 @@ def viterbi(token ,b_table, e_table, c2i, i2c):
 					continue
 				p_mat[p, cur] = p_mat[p-1, max_pair[0][1]] + math.log(b_table[max_pair[0][1], cur]) + math.log(e_mat[p, cur])
 
-		Mpath = []
-		MaxProb = -float('Inf')
+	Mpath = []
+	MaxProb = -float('Inf')
 
 	for i in range(size):
 		if p_mat[len(token)-1, i] > MaxProb:
