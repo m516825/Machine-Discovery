@@ -120,10 +120,10 @@ def viterbi(token ,b_table, e_table, c2i, i2c):
 		Mpath = []
 		MaxProb = -float('Inf')
 
-		for i in range(size):
-			if p_mat[len(token)-1, i] > MaxProb:
-				MaxProb = p_mat[len(token)-1, i]
-				Mpath = max_path[len(token)-1][i]
+	for i in range(size):
+		if p_mat[len(token)-1, i] > MaxProb:
+			MaxProb = p_mat[len(token)-1, i]
+			Mpath = max_path[len(token)-1][i]
 				
 	ans_str = ''
 	for path in Mpath:
