@@ -102,8 +102,9 @@ int main(int argc, char** argv) {
 	char* test_path = "./src/test.txt";
 	char* output_path = "./pre.txt";
 	double **bigram_table, **encode_table;
-	char token[50];
-
+	char token[50], inchar[2];
+	inchar[1] = '\0';
+	token[0] = '\0';
 	bigram_table = (double**)malloc(sizeof(double*)*37);
 	for (int i = 0; i < 37 ; i++) {
 		bigram_table[i] = (double*)malloc(sizeof(double)*37);
@@ -118,11 +119,14 @@ int main(int argc, char** argv) {
 
 	FILE *fp = fopen(test_path, "r");
 	FILE *fp_out = fopen(output_path, "w");
-	while(fscanf(fp,"%s", token) != EOF) {
-		strcat(token, " ");
-		char* ans_str = viterbi(bigram_table, encode_table, token);
-		fprintf(fp_out, "%s ", ans_str);
-		free(ans_str);
+	while(fscanf(fp,"%c", &inchar[0]) != EOF) {
+		strcat(token, inchar);
+		if (inchar[0] == ' ') {
+			char* ans_str = viterbi(bigram_table, encode_table, token);
+			fprintf(fp_out, "%s ", ans_str);
+			free(ans_str);
+			token[0] = '\0';
+		}
 	}
 	fprintf(fp_out, "\n");
 
