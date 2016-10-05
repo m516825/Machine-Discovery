@@ -4,6 +4,9 @@
 #include <math.h>
 #include <stdbool.h>
 
+double **alpha, **beta, **Gamma;
+double*** epsilon;
+
 void load_info(double** table_ptr, char* path) {
 	char s[100], prob_str[100];
 	int c1, c2;
@@ -34,23 +37,6 @@ void initial(double** bigram_table, double** encode_table, double* prior_array) 
 }
 
 void E_process(double* _p_a, double** b_t,double** e_t,double* p_a, int* ob_dat, int T, double* b_g_sum, double** b_e_sum, double* e_g_sum, double** e_g_sum_only_j) {
-	double **alpha, **beta, **gamma;
-	double*** epsilon;
-	// init space
-	alpha = (double**)calloc(T, sizeof(double*));
-	beta = (double**)calloc(T, sizeof(double*));
-	gamma = (double**)calloc(T, sizeof(double*));
-	epsilon = (double***)calloc(T, sizeof(double**));
-
-	for (int t = 0; t < T; t++) {
-		alpha[t] = (double*)calloc(37, sizeof(double));
-		beta[t] = (double*)calloc(37, sizeof(double));
-		gamma[t] = (double*)calloc(37, sizeof(double));
-		epsilon[t] = (double**)calloc(37, sizeof(double*));
-		for (int i = 0; i < 37; i++) {
-			epsilon[t][i] = (double*)calloc(37, sizeof(double));
-		}
-	}
 
 	// calculate alpha
 	for (int t = 0; t < T; t++) {
@@ -91,7 +77,7 @@ void E_process(double* _p_a, double** b_t,double** e_t,double* p_a, int* ob_dat,
 			tmp_sum += alpha[t][i] * beta[t][i];
 		}
 		for (int i = 0; i < 37; i++) {
-			gamma[t][i] = tmp_sum != 0. ? alpha[t][i] * beta[t][i] / tmp_sum : 0.;
+			Gamma[t][i] = tmp_sum != 0. ? alpha[t][i] * beta[t][i] / tmp_sum : 0.;
 		}	
 	}
 
@@ -114,13 +100,13 @@ void E_process(double* _p_a, double** b_t,double** e_t,double* p_a, int* ob_dat,
 
 	// adding to p_a'
 	for (int i = 0; i < 37; i++) {
-		_p_a[i] += gamma[0][i];
+		_p_a[i] += Gamma[0][i];
 	}
 	// adding to b_t'
 	for (int i = 0; i < 37; i++) {
 		double g_sum = 0;
 		for (int t = 0; t < T-1; t++) {
-			g_sum += gamma[t][i];
+			g_sum += Gamma[t][i];
 		}
 		for (int j = 0; j < 37; j++) {
 			double e_sum = 0;
@@ -136,13 +122,13 @@ void E_process(double* _p_a, double** b_t,double** e_t,double* p_a, int* ob_dat,
 	for (int i = 0; i < 37; i++) {
 		double g_sum = 0;
 		for (int t = 0; t < T; t++) {
-			g_sum += gamma[t][i];
+			g_sum += Gamma[t][i];
 		}
 		for (int j = 0; j < 37; j++) {
 			double g_sum_only_j = 0;
 			for (int t = 0; t < T; t++) {
 				if (ob_dat[t] == j) {
-					g_sum_only_j += gamma[t][i];
+					g_sum_only_j += Gamma[t][i];
 				} 
 			}
 			// _e_t[i][j] += g_sum != 0. ? g_sum_only_j / g_sum : 0.;
@@ -151,20 +137,6 @@ void E_process(double* _p_a, double** b_t,double** e_t,double* p_a, int* ob_dat,
 		e_g_sum[i] += (double) g_sum;
 	}
 
-	// free space
-	for (int t = 0; t < T; t++) {
-		for (int i = 0; i < 37; i++) {
-			free(epsilon[t][i]);
-		}
-		free(alpha[t]);
-		free(beta[t]);
-		free(gamma[t]);
-		free(epsilon[t]);
-	}
-	free(alpha);
-	free(beta);
-	free(gamma);
-	free(epsilon);
 }
 
 void restore_prob(double** bigram_table, double** encode_table, double* prior_array, double** _bigram_table, double** _encode_table, double* _prior_array) {
@@ -204,8 +176,7 @@ int main(int argc, char** argv) {
 	double **_bigram_table, **_encode_table;
 	double *_prior_array;
 	int *observed_dat;
-	int T = 50;
-	int split_num = 0;
+	int T = 200;
 	int num;
 	char* test_path = "./valid/test.num";
 
@@ -235,12 +206,27 @@ int main(int argc, char** argv) {
 		e_gamma_sum_only_j[i] = (double*)calloc(37, sizeof(double));
 	}
 
+	alpha = (double**)calloc(T, sizeof(double*));
+	beta = (double**)calloc(T, sizeof(double*));
+	Gamma = (double**)calloc(T, sizeof(double*));
+	epsilon = (double***)calloc(T, sizeof(double**));
+
+	for (int t = 0; t < T; t++) {
+		alpha[t] = (double*)calloc(37, sizeof(double));
+		beta[t] = (double*)calloc(37, sizeof(double));
+		Gamma[t] = (double*)calloc(37, sizeof(double));
+		epsilon[t] = (double**)calloc(37, sizeof(double*));
+		for (int i = 0; i < 37; i++) {
+			epsilon[t][i] = (double*)calloc(37, sizeof(double));
+		}
+	}
+
 	initial(bigram_table, encode_table, prior_array);
 
 	while(1) {
 		FILE* fp = fopen(test_path, "r");
 		int loaded = 0;
-	
+		int split_num = 0;
 		for (int i = 0; i < 37; i++) {
 			for (int j = 0; j < 37; j++) {
 				b_epsilon_sum[i][j] = 0;
@@ -253,15 +239,16 @@ int main(int argc, char** argv) {
 		while(fscanf(fp, "%d ", &num) != EOF) {
 			observed_dat[loaded] = num;
 			loaded += 1;
-			if (loaded == 50) {
-				//
+			if (num == 36) {
 				E_process(_prior_array, bigram_table, encode_table, prior_array, observed_dat, loaded, b_gamma_sum, b_epsilon_sum, e_gamma_sum, e_gamma_sum_only_j);
-				// next token
-				loaded = 0;
+				observed_dat[0] = 36;
+				loaded = 1;
 				split_num += 1;
 			}
 		}
-		if (loaded > 0) {
+		if (loaded > 1) {
+			observed_dat[loaded] = 36;
+			loaded += 1;
 			E_process(_prior_array, bigram_table, encode_table, prior_array, observed_dat, loaded, b_gamma_sum, b_epsilon_sum, e_gamma_sum, e_gamma_sum_only_j);
 			split_num += 1;
 		}
@@ -284,8 +271,36 @@ int main(int argc, char** argv) {
 
 		// restore new prob table
 		restore_prob(bigram_table, encode_table, prior_array, _bigram_table, _encode_table, _prior_array);
-
 	}
+
+	// free space
+	for (int i = 0; i < 37; i++) {
+		free(bigram_table[i]);
+		free(encode_table[i]);
+		free(_bigram_table[i]);
+		free(_encode_table[i]);
+	}
+	free(bigram_table);
+	free(encode_table);
+	free(_bigram_table);
+	free(_encode_table);
+	free(prior_array);
+	free(_prior_array);
+	free(observed_dat);
+
+	for (int t = 0; t < T; t++) {
+		for (int i = 0; i < 37; i++) {
+			free(epsilon[t][i]);
+		}
+		free(alpha[t]);
+		free(beta[t]);
+		free(Gamma[t]);
+		free(epsilon[t]);
+	}
+	free(alpha);
+	free(beta);
+	free(Gamma);
+	free(epsilon);
 
 	return 0;
 }
