@@ -85,7 +85,7 @@ char* viterbi(double** bigram_table, double** encode_table, char* token) {
 			max_index = c;
 		}
 	}
-	char* ans_str = malloc(sizeof(char)*(strlen(token)-1));
+	char* ans_str = malloc(sizeof(char)*strlen(token));
 	for (int t = strlen(token)-1; t >= 1; t--) {
 		int c_index = path_mat[t][max_index];
 		ans_str[t-1] = i2c(c_index);

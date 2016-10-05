@@ -169,6 +169,95 @@ bool stop_process(double** bigram_table, double** encode_table, double* prior_ar
 	}
 }
 
+double calculate_prob(double p_mat[37], double e_mat[37], double** bigram_table, int c_1, int c) {
+	double ans = (bigram_table[c_1][c] && e_mat[c]) != 0.0 ? p_mat[c_1] + log(bigram_table[c_1][c]) + log(e_mat[c]) : -INFINITY;
+	return ans;
+}
+
+int* viterbi(double** bigram_table, double** encode_table, int* token, int tokenlen) {
+	double e_mat[tokenlen][37], p_mat[tokenlen][37];
+	int path_mat[tokenlen][37];
+
+	for (int t = 0; t < tokenlen; t++) {
+		for (int c = 0; c < 37; c++) {
+			e_mat[t][c] = encode_table[c][token[t]];
+			path_mat[t][c] = -1;
+		}
+	}
+
+	for (int t = 0; t < tokenlen; t++) {
+		if (t == 0) {
+			for (int c = 0; c < 37; c++) {
+				p_mat[t][c] = (e_mat[t][c] && bigram_table[36][c]) != 0.0 ? log(e_mat[t][c]) + log(bigram_table[36][c]) : -INFINITY;
+			}
+		} else {
+			for (int c = 0; c < 37; c++) {
+				int max_pre = 0;
+				double max_prob = -INFINITY;
+				for (int c_1 = 0; c_1 < 37; c_1++) {
+					double tmp_prob = calculate_prob(p_mat[t-1], e_mat[t], bigram_table, c_1, c);
+					if (tmp_prob > max_prob) {
+						max_prob = tmp_prob;
+						max_pre = c_1;
+					}
+				}
+				path_mat[t][c] = max_pre;
+
+				int c_1 = path_mat[t][c];
+				p_mat[t][c] = (bigram_table[c_1][c] && e_mat[t][c]) != 0.0 ? p_mat[t-1][c_1] + log(bigram_table[c_1][c]) + log(e_mat[t][c]) : -INFINITY;
+			}
+		}
+	}
+	int max_index;
+	double max_prob = -INFINITY;
+	for (int c = 0; c < 37; c++) {
+		if (p_mat[tokenlen-1][c] > max_prob) {
+			max_prob = p_mat[tokenlen-1][c];
+			max_index = c;
+		}
+	}
+	int* ans_int = malloc(sizeof(int)*tokenlen);
+	for (int t = tokenlen-1; t >= 1; t--) {
+		int c_index = path_mat[t][max_index];
+		ans_int[t-1] = c_index;
+		max_index = c_index;
+	}
+	ans_int[tokenlen-1] = 36;
+
+	return ans_int;
+}
+
+void do_viberbi(char* test_path, char* output_path, double** bigram_table, double** encode_table, int* observed_dat) {
+	FILE *fp_in, *fp_out;
+	int num, loaded = 0;
+	int *ans;
+	fp_in = fopen(test_path, "r");
+	fp_out = fopen(output_path, "w");
+	while(fscanf(fp_in, "%d ", &num) != EOF) {
+		observed_dat[loaded] = num;
+		loaded += 1;
+		if (num == 36) {
+			ans = viterbi(bigram_table, encode_table, observed_dat, loaded);
+			for (int i = 0; i < loaded; i++) {
+				fprintf(fp_out, "%d ", ans[i]);
+			}
+			free(ans);
+			loaded = 0;
+		}
+	}
+	if (loaded > 0) {
+		observed_dat[loaded] = 36;
+		loaded += 1;
+		ans = viterbi(bigram_table, encode_table, observed_dat, loaded);
+		for (int i = 0; i < loaded-1; i++) {
+				fprintf(fp_out, "%d ", ans[i]);
+		}
+		free(ans);
+	}
+	fclose(fp_in);
+	fclose(fp_out);
+}
+
 int main(int argc, char** argv) {
 	double **bigram_table, **encode_table;
 	double *prior_array;
@@ -178,7 +267,9 @@ int main(int argc, char** argv) {
 	int *observed_dat;
 	int T = 200;
 	int num;
+	int iter = 10;
 	char* test_path = "./valid/test.num";
+	char* output_path = "./valid/output.num";
 
 	observed_dat = (int*)calloc(T, sizeof(int));
 	bigram_table = (double**)calloc(37, sizeof(double*));
@@ -227,6 +318,7 @@ int main(int argc, char** argv) {
 		FILE* fp = fopen(test_path, "r");
 		int loaded = 0;
 		int split_num = 0;
+
 		for (int i = 0; i < 37; i++) {
 			for (int j = 0; j < 37; j++) {
 				b_epsilon_sum[i][j] = 0;
@@ -262,16 +354,21 @@ int main(int argc, char** argv) {
 			_prior_array[i] /= (double) split_num;
 		}
 
-		/*
-			compare two prob table here!!!!
-		*/
 		if (stop_process(bigram_table, encode_table, prior_array, _bigram_table, _encode_table, _prior_array)) {
 			break;
 		}
 
 		// restore new prob table
 		restore_prob(bigram_table, encode_table, prior_array, _bigram_table, _encode_table, _prior_array);
+		fclose(fp);
+
+		iter--;
+		if (iter == 0) {
+			break;
+		}
 	}
+
+	do_viberbi(test_path, output_path, bigram_table, encode_table, observed_dat);
 
 	// free space
 	for (int i = 0; i < 37; i++) {
